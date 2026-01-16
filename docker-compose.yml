@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  hytale-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hytale-server
+    image: hytale-server:latest
+    restart: unless-stopped
+    ports:
+      - "5520:5520/udp"  # Default UDP port for Hytale (QUIC over UDP)
+    volumes:
+      # Server files directory (persists downloaded server files)
+      - ./server:/hytale/server
+      # Assets directory (persists Assets.zip)
+      - ./assets:/hytale/assets
+      # Universe directory (worlds, player data, configs, logs, etc.)
+      - ./universe:/hytale/universe
+    environment:
+      # Java memory settings - adjust based on your server RAM
+      # Minimum recommended: 4GB (Xms4G -Xmx4G)
+      # For more players, increase accordingly (e.g., -Xms6G -Xmx8G)
+      JAVA_OPTS: "-Xms4G -Xmx4G"
+    # Optional: Set resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
