@@ -21,20 +21,56 @@ java -version
 if [ ! -f "${SERVER_DIR}/HytaleServer.jar" ] || [ ! -f "${ASSETS_ZIP}" ]; then
     echo "[INFO] Server files or assets missing. Downloading using Hytale Downloader..."
     
-    # Download the Hytale downloader tool
+    # Check for local downloader first (in /hytale/downloader or /hytale)
     cd /hytale
-    wget -q https://downloader.hytale.com/hytale-downloader.zip -O hytale-downloader.zip
-    unzip -q hytale-downloader.zip
-    chmod +x hytale-downloader*
+    DOWNLOADER_BIN=""
     
-    # Find the correct downloader binary (could be different names based on architecture)
-    if [ -f "hytale-downloader-linux-amd64" ]; then
-        DOWNLOADER_BIN="./hytale-downloader-linux-amd64"
-    elif [ -f "hytale-downloader" ]; then
-        DOWNLOADER_BIN="./hytale-downloader"
+    # Check /hytale/downloader directory first (copied from build context or mounted)
+    if [ -d "/hytale/downloader" ] && [ "$(ls -A /hytale/downloader 2>/dev/null)" ]; then
+        echo "[INFO] Checking for downloader in /hytale/downloader..."
+        if [ -f "/hytale/downloader/hytale-downloader-linux-amd64" ]; then
+            DOWNLOADER_BIN="/hytale/downloader/hytale-downloader-linux-amd64"
+        elif [ -f "/hytale/downloader/hytale-downloader" ]; then
+            DOWNLOADER_BIN="/hytale/downloader/hytale-downloader"
+        else
+            DOWNLOADER_BIN=$(find /hytale/downloader -type f -executable -name "hytale-downloader*" 2>/dev/null | head -n 1)
+        fi
+    fi
+    
+    # Check /hytale directory for downloader files
+    if [ -z "$DOWNLOADER_BIN" ]; then
+        echo "[INFO] Checking for downloader in /hytale..."
+        if [ -f "/hytale/hytale-downloader-linux-amd64" ]; then
+            DOWNLOADER_BIN="/hytale/hytale-downloader-linux-amd64"
+        elif [ -f "/hytale/hytale-downloader" ]; then
+            DOWNLOADER_BIN="/hytale/hytale-downloader"
+        else
+            DOWNLOADER_BIN=$(find /hytale -maxdepth 1 -type f -executable -name "hytale-downloader*" 2>/dev/null | head -n 1)
+        fi
+    fi
+    
+    # If no local downloader found, download it
+    if [ -z "$DOWNLOADER_BIN" ] || [ ! -f "$DOWNLOADER_BIN" ]; then
+        echo "[INFO] No local downloader found. Downloading Hytale downloader..."
+        wget -q https://downloader.hytale.com/hytale-downloader.zip -O hytale-downloader.zip
+        unzip -q hytale-downloader.zip -d /hytale/downloader-temp 2>/dev/null || unzip -q hytale-downloader.zip
+        chmod +x hytale-downloader* 2>/dev/null || true
+        
+        # Find the downloaded binary
+        if [ -f "/hytale/downloader-temp/hytale-downloader-linux-amd64" ]; then
+            DOWNLOADER_BIN="/hytale/downloader-temp/hytale-downloader-linux-amd64"
+        elif [ -f "hytale-downloader-linux-amd64" ]; then
+            DOWNLOADER_BIN="./hytale-downloader-linux-amd64"
+        elif [ -f "hytale-downloader" ]; then
+            DOWNLOADER_BIN="./hytale-downloader"
+        else
+            DOWNLOADER_BIN=$(find . -name "hytale-downloader*" -type f -executable 2>/dev/null | head -n 1)
+            if [ -z "$DOWNLOADER_BIN" ]; then
+                DOWNLOADER_BIN=$(find /hytale/downloader-temp -name "hytale-downloader*" -type f -executable 2>/dev/null | head -n 1)
+            fi
+        fi
     else
-        # Find first executable downloader file
-        DOWNLOADER_BIN=$(find . -name "hytale-downloader*" -type f -executable | head -n 1)
+        echo "[INFO] Found local downloader: ${DOWNLOADER_BIN}"
     fi
     
     if [ -z "$DOWNLOADER_BIN" ] || [ ! -f "$DOWNLOADER_BIN" ]; then

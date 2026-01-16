@@ -23,6 +23,25 @@ This Docker setup allows you to run a Hytale server on Unraid using the official
    docker build -t hytale-server:latest .
    ```
 
+   **Optional - Using a Local Downloader:**
+   
+   If you have already downloaded the Hytale downloader executable and placed it in your project folder, you can mount it as a volume to avoid downloading it each time:
+   
+   ```bash
+   docker run -d \
+     --name hytale-server \
+     --restart unless-stopped \
+     -p 5520:5520/udp \
+     -v /mnt/user/appdata/hytale-server/server:/hytale/server \
+     -v /mnt/user/appdata/hytale-server/assets:/hytale/assets \
+     -v /mnt/user/appdata/hytale-server/universe:/hytale/universe \
+     -v /mnt/user/appdata/hytale-server/hytale-downloader-linux-amd64:/hytale/downloader/hytale-downloader-linux-amd64:ro \
+     -e JAVA_OPTS="-Xms8G -Xmx8G" \
+     hytale-server:latest
+   ```
+   
+   The entrypoint script will automatically detect and use the local downloader if present, otherwise it will download it automatically.
+
 3. **Run the container:**
    ```bash
    docker run -d \

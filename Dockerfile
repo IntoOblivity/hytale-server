@@ -14,11 +14,16 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /hytale
 
 # Create directories for server files, assets, and persistent data
-RUN mkdir -p /hytale/server /hytale/assets /hytale/universe
+RUN mkdir -p /hytale/server /hytale/assets /hytale/universe /hytale/downloader
 
 # Copy entrypoint script
 COPY entrypoint.sh /hytale/entrypoint.sh
 RUN chmod +x /hytale/entrypoint.sh
+
+# Note: If you have a local downloader executable, you can mount it as a volume
+# Example: -v /path/to/hytale-downloader:/hytale/downloader/hytale-downloader-linux-amd64
+# Or place it in your project directory and mount the parent directory
+# The entrypoint script will check for local downloader first before downloading
 
 # Expose default UDP port for Hytale server (QUIC over UDP)
 EXPOSE 5520/udp
