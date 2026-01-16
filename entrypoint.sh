@@ -44,8 +44,56 @@ if [ ! -f "${SERVER_DIR}/HytaleServer.jar" ] || [ ! -f "${ASSETS_ZIP}" ]; then
     
     echo "[INFO] Using downloader: ${DOWNLOADER_BIN}"
     
-    # Use the downloader to download server files
-    ${DOWNLOADER_BIN} --download-path /tmp/server.zip
+    # Use the downloader to download server files with retry logic
+    MAX_RETRIES=3
+    RETRY_COUNT=0
+    DOWNLOAD_SUCCESS=false
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$DOWNLOAD_SUCCESS" = false ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        
+        if [ $RETRY_COUNT -gt 1 ]; then
+            echo "[INFO] Retry attempt $RETRY_COUNT of $MAX_RETRIES..."
+            sleep 5
+        fi
+        
+        echo "[INFO] Downloading server files (attempt $RETRY_COUNT/$MAX_RETRIES)..."
+        echo "[INFO] Note: If you see an authorization code, visit https://oauth.accounts.hytale.com/oauth2/device/verify to authorize."
+        
+        # Run downloader and capture output
+        if ${DOWNLOADER_BIN} --download-path /tmp/server.zip 2>&1; then
+            if [ -f /tmp/server.zip ]; then
+                DOWNLOAD_SUCCESS=true
+                echo "[INFO] Download completed successfully!"
+            else
+                echo "[WARN] Downloader completed but server.zip not found. Retrying..."
+            fi
+        else
+            DOWNLOAD_EXIT_CODE=$?
+            echo "[WARN] Downloader exited with code $DOWNLOAD_EXIT_CODE. This might be a timeout or network issue."
+            
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "[INFO] Waiting before retry..."
+            fi
+        fi
+    done
+    
+    if [ "$DOWNLOAD_SUCCESS" = false ]; then
+        echo "[ERROR] Failed to download server files after $MAX_RETRIES attempts."
+        echo "[ERROR] This could be due to:"
+        echo "[ERROR]   - Network connectivity issues"
+        echo "[ERROR]   - Hytale services being temporarily unavailable"
+        echo "[ERROR]   - Timeout issues with the downloader"
+        echo "[ERROR]   - Authorization required but not completed"
+        echo "[ERROR]"
+        echo "[ERROR] Troubleshooting steps:"
+        echo "[ERROR]   1. Check your internet connection"
+        echo "[ERROR]   2. Visit https://oauth.accounts.hytale.com/oauth2/device/verify with the authorization code if shown"
+        echo "[ERROR]   3. Check if you can access https://account-data.hytale.com from your network"
+        echo "[ERROR]   4. Try running the downloader manually inside the container"
+        echo "[ERROR]   5. Wait a few minutes and restart the container"
+        exit 1
+    fi
     
     if [ -f /tmp/server.zip ]; then
         echo "[INFO] Extracting server files..."

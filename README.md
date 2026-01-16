@@ -9,39 +9,51 @@ This Docker setup allows you to run a Hytale server on Unraid using the official
 - **Port**: UDP 5520 (default Hytale server port)
 - **Storage**: Space for server files and world data
 
-## Quick Start
+## Quick Start (Unraid - Standard Docker Commands)
 
-### Using Docker Compose
+**Note:** Unraid typically doesn't have `docker-compose` installed by default. Use standard Docker commands as shown below.
 
-1. **Clone or download this repository** to your Unraid server
-
-2. **Build and start the container:**
+1. **Navigate to the directory with your Docker files:**
    ```bash
-   docker-compose up -d
+   cd /mnt/user/appdata/hytale-server
    ```
 
-3. **View logs:**
-   ```bash
-   docker-compose logs -f
-   ```
-
-### Manual Docker Build
-
-1. **Build the image:**
+2. **Build the image:**
    ```bash
    docker build -t hytale-server:latest .
    ```
 
-2. **Run the container:**
+3. **Run the container:**
    ```bash
    docker run -d \
      --name hytale-server \
      --restart unless-stopped \
      -p 5520:5520/udp \
-     -v ./data:/hytale/data \
-     -v ./server:/hytale/server \
-     -e JAVA_OPTS="-Xms4G -Xmx4G" \
+     -v /mnt/user/appdata/hytale-server/server:/hytale/server \
+     -v /mnt/user/appdata/hytale-server/assets:/hytale/assets \
+     -v /mnt/user/appdata/hytale-server/universe:/hytale/universe \
+     -e JAVA_OPTS="-Xms8G -Xmx8G" \
      hytale-server:latest
+   ```
+
+4. **View logs:**
+   ```bash
+   docker logs -f hytale-server
+   ```
+
+5. **Stop the container:**
+   ```bash
+   docker stop hytale-server
+   ```
+
+6. **Start the container:**
+   ```bash
+   docker start hytale-server
+   ```
+
+7. **Remove the container (keeps volumes):**
+   ```bash
+   docker rm hytale-server
    ```
 
 ## Unraid Setup
@@ -59,28 +71,37 @@ This Docker setup allows you to run a Hytale server on Unraid using the official
      - **Host Port**: `5520`
      - **Type**: `UDP`
    - **Volume Mappings**:
-   - `/mnt/user/appdata/hytale/server` → `/hytale/server`
-   - `/mnt/user/appdata/hytale/assets` → `/hytale/assets`
-   - `/mnt/user/appdata/hytale/universe` → `/hytale/universe`
+   - `/mnt/user/appdata/hytale-server/server` → `/hytale/server`
+   - `/mnt/user/appdata/hytale-server/assets` → `/hytale/assets`
+   - `/mnt/user/appdata/hytale-server/universe` → `/hytale/universe`
+   
+   **Tip:** You can create these directories first:
+   ```bash
+   mkdir -p /mnt/user/appdata/hytale-server/{server,assets,universe}
+   ```
    - **Environment Variables**:
      - `JAVA_OPTS` = `-Xms4G -Xmx4G` (adjust based on your server RAM)
 
 3. **Click Apply** to start the container
 
-### Using Docker Compose Plugin (if installed)
+### Alternative: Using Docker Compose (if installed via NerdPack or Community Apps)
 
-1. Place `docker-compose.yml` in your desired location (e.g., `/mnt/user/appdata/hytale/`)
+**Note:** Unraid doesn't come with Docker Compose by default. If you've installed it via NerdPack or a plugin, you can use:
+
+1. Place `docker-compose.yml` in your desired location (e.g., `/mnt/user/appdata/hytale-server/`)
 2. Update volume paths in `docker-compose.yml` to use Unraid paths:
    ```yaml
    volumes:
-     - /mnt/user/appdata/hytale/server:/hytale/server
-     - /mnt/user/appdata/hytale/assets:/hytale/assets
-     - /mnt/user/appdata/hytale/universe:/hytale/universe
+     - /mnt/user/appdata/hytale-server/server:/hytale/server
+     - /mnt/user/appdata/hytale-server/assets:/hytale/assets
+     - /mnt/user/appdata/hytale-server/universe:/hytale/universe
    ```
-3. Run via Unraid's Docker Compose plugin or via terminal:
+3. Run via terminal (if docker-compose is installed):
    ```bash
    docker-compose up -d
    ```
+
+**Recommended:** Use the standard Docker commands method above instead, as it works on all Unraid systems without additional plugins.
 
 ## Server Authentication
 
@@ -117,8 +138,8 @@ Adjust `JAVA_OPTS` environment variable based on your server's RAM:
 
 The default port is **UDP 5520**. To change it:
 
-1. Update the port mapping in docker-compose.yml or Unraid GUI
-2. Update the `--bind` parameter in `entrypoint.sh` if needed
+1. Update the port mapping in your `docker run` command or Unraid GUI (e.g., `-p 5530:5520/udp` for host port 5530)
+2. Update the `--bind` parameter in `entrypoint.sh` if needed (e.g., `--bind 0.0.0.0:5530`)
 
 ### Persistent Data
 
@@ -129,9 +150,14 @@ The Docker setup uses three persistent volumes:
 - **`/hytale/universe`** - World files, server configuration, logs, player data
 
 For Unraid, these map to:
-- `/mnt/user/appdata/hytale/server`
-- `/mnt/user/appdata/hytale/assets`
-- `/mnt/user/appdata/hytale/universe`
+- `/mnt/user/appdata/hytale-server/server`
+- `/mnt/user/appdata/hytale-server/assets`
+- `/mnt/user/appdata/hytale-server/universe`
+
+**Note:** Make sure these directories exist before running the container:
+```bash
+mkdir -p /mnt/user/appdata/hytale-server/{server,assets,universe}
+```
 
 ## Updating Server Files
 
@@ -139,8 +165,8 @@ The container automatically downloads server files on first run. To update:
 
 1. **Option 1**: Delete server files and restart
    ```bash
-   rm -rf ./server/*
-   docker-compose restart
+   rm -rf /mnt/user/appdata/hytale-server/server/*
+   docker restart hytale-server
    ```
 
 2. **Option 2**: Manually use the downloader inside the container
@@ -150,8 +176,53 @@ The container automatically downloads server files on first run. To update:
 
 ## Troubleshooting
 
+### Downloader timeout / "context deadline exceeded" error
+
+If you see errors like:
+```
+error fetching manifest: could not get signed URL for manifest: context deadline exceeded
+```
+
+**Solutions:**
+
+1. **Complete the authorization first:**
+   - If you see an authorization code (e.g., `gGErMuVN`), visit: https://oauth.accounts.hytale.com/oauth2/device/verify
+   - Enter the code and complete the OAuth flow
+
+2. **Check network connectivity from container:**
+   ```bash
+   docker exec hytale-server ping -c 3 account-data.hytale.com
+   docker exec hytale-server curl -I https://account-data.hytale.com/game-assets/version/release.json
+   ```
+
+3. **Test DNS resolution:**
+   ```bash
+   docker exec hytale-server nslookup account-data.hytale.com
+   ```
+
+4. **Manual download (alternative):**
+   - The script now includes retry logic (3 attempts)
+   - If all retries fail, you can manually run the downloader:
+   ```bash
+   docker exec -it hytale-server bash
+   cd /hytale
+   wget https://downloader.hytale.com/hytale-downloader.zip
+   unzip hytale-downloader.zip
+   chmod +x hytale-downloader*
+   ./hytale-downloader-linux-amd64 --download-path /tmp/server.zip
+   ```
+
+5. **Network/Firewall:**
+   - Ensure your Unraid server can access `account-data.hytale.com`
+   - Check if any firewall is blocking outbound HTTPS connections
+   - Try using host network mode (add `--network host` to docker run, but this may affect port mappings)
+
+6. **Wait and retry:**
+   - Hytale services may be temporarily slow or unavailable
+   - Wait 5-10 minutes and restart the container
+
 ### Server won't start
-- Check logs: `docker-compose logs hytale-server`
+- Check logs: `docker logs hytale-server` or `docker logs -f hytale-server` (follow)
 - Verify Java is installed: `docker exec hytale-server java -version`
 - Check port 5520 is not in use: `netstat -un | grep 5520`
 
